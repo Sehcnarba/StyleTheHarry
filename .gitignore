@@ -18,3 +18,8 @@ yarn-error.log*
 *.log
 .env
 .env.local
+
+# Fotos originais dos Harry's e da rapariga (por tratar, ficheiros grandes) —
+# as versões já recortadas/otimizadas para o jogo vivem em assets/images/
+/harries/
+/nutri/

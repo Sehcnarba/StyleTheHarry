@@ -34,9 +34,9 @@ StyleTheHarry/
 
 Sem dependências, sem build — é HTML/CSS/JS puro, corre em qualquer browser moderno.
 
-## Trocar os placeholders pelas imagens finais
+## Imagens
 
-Neste momento a rapariga, a cesta e os Harry's são emojis. Quando tiveres as imagens/caricaturas definitivas, segue as instruções em [`assets/images/README.md`](assets/images/README.md) — resume-se a colocar os ficheiros nessa pasta e preencher os caminhos no topo de `js/game.js` (objeto `ASSETS`). Não é preciso tocar em mais nada.
+Os 16 Harry's que caem já usam as tuas fotos (`assets/images/harry-1.png` a `harry-16.png`), recortadas e otimizadas à volta da cara. A rapariga também já usa a tua ilustração (`girl.png` no jogo, `girl-face.png` no menu), com o fundo removido. Só a cesta continua como emoji placeholder. Detalhes em [`assets/images/README.md`](assets/images/README.md).
 
 ## Afinar a jogabilidade
 

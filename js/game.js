@@ -15,11 +15,28 @@
    automaticamente substituídos pelas imagens.
    ----------------------------------------------------------- */
 const ASSETS = {
-  girl: null,          // ex: 'assets/images/girl.png'  (rapariga no jogo)
-  basket: null,         // ex: 'assets/images/basket.png'
-  menuGirl: null,        // ex: 'assets/images/girl-face.png' (cara no menu)
-  menuHarry: null,        // ex: 'assets/images/harry-menu.png' (dentro da moldura de coração)
-  harryVariants: [],       // ex: ['assets/images/harry-1.png', 'assets/images/harry-2.png', ...]
+  girl: 'assets/images/girl.png',       // a rapariga durante o jogo (corpo inteiro)
+  basket: null,         // ex: 'assets/images/basket.png' — ainda por adicionar
+  menuGirl: 'assets/images/girl-face.png', // cara da rapariga no ecrã de menu
+  menuHarry: 'assets/images/harry-12.png', // imagem dentro da moldura de coração do menu
+  harryVariants: [
+    'assets/images/harry-1.png',
+    'assets/images/harry-2.png',
+    'assets/images/harry-3.png',
+    'assets/images/harry-4.png',
+    'assets/images/harry-5.png',
+    'assets/images/harry-6.png',
+    'assets/images/harry-7.png',
+    'assets/images/harry-8.png',
+    'assets/images/harry-9.png',
+    'assets/images/harry-10.png',
+    'assets/images/harry-11.png',
+    'assets/images/harry-12.png',
+    'assets/images/harry-13.png',
+    'assets/images/harry-14.png',
+    'assets/images/harry-15.png',
+    'assets/images/harry-16.png',
+  ],
 };
 
 // Emojis usados enquanto ASSETS.harryVariants estiver vazio.
