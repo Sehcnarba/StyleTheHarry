@@ -7,10 +7,15 @@ Um mini-jogo cómico: a rapariga corre para os lados a tentar apanhar, com a ces
 Abre `index.html` num browser (basta fazer duplo-clique no ficheiro, ou usar uma extensão tipo "Live Server").
 
 - **Mover:** move o rato (ou o dedo, em telemóvel/tablet) para a esquerda e direita — a rapariga segue-te. As setas ← → do teclado também funcionam.
-- **Objetivo:** apanha os Harry's com a cesta antes de caírem ao chão. Cada apanha = **+1 ponto**.
-- **Vidas:** começas com **10 vidas** (corações no topo). Perdes uma vida sempre que um Harry cai sem seres apanhado na cesta.
-- **Dificuldade:** a cada **20 pontos**, a velocidade de queda aumenta.
-- **Fim de jogo:** quando as vidas chegam a 0, o coração parte-se e aparece o teu score final, com opção de jogar novamente ou voltar ao menu.
+- **Objetivo:** apanha os Harry's *dentro da cesta* antes de caírem ao chão. Cada apanha = **+1 ponto**.
+- **Vidas:** começas com **10 vidas** (corações no topo). Perdes uma vida sempre que um Harry cai sem ser apanhado na cesta.
+- **Sair a meio do jogo:** o botão ✕ no canto superior esquerdo termina o jogo de imediato (perdes todas as vidas automaticamente).
+- **Dificuldade:** a cada **20 pontos**, a velocidade de queda aumenta — sem limite, até ficar mesmo impossível de continuar.
+- **Fim de jogo:** quando as vidas chegam a 0 (ou saíres pelo botão ✕), o coração parte-se e aparece o teu score final. Se entrares no **top 10**, é-te pedido o nome para guardar o recorde.
+
+## Recordes (scoreboard)
+
+O jogo guarda os **10 melhores resultados** no próprio browser onde é jogado (usando `localStorage` — cada browser/computador tem a sua lista, não é partilhada online). Se acabares o jogo com um score que entra no top 10, aparece um pequeno formulário a pedir o teu nome antes dos botões finais. A lista dos melhores 10 pode ser vista a qualquer momento a partir do menu, no botão "🏆 Recordes".
 
 ## Estrutura do projeto
 
@@ -39,8 +44,9 @@ No topo de `js/game.js` há um bloco de constantes fácil de ajustar:
 
 - `MAX_LIVES` — número de vidas (atualmente 10)
 - `POINTS_PER_SPEED_TIER` — pontos necessários para subir de velocidade (atualmente 20)
-- `BASE_FALL_MS` / `MIN_FALL_MS` / `FALL_MS_MULT` — controlam a velocidade de queda e o quão rápido isso escala
+- `BASE_FALL_MS` / `FALL_MS_MULT` — controlam a velocidade de queda inicial e o quão rápido isso escala (sem limite máximo, por decisão de desenho — `FALL_MS_FLOOR` é só uma rede de segurança técnica, não uma dificuldade máxima)
 - `SPAWN_INTERVAL_MS` / `SPAWN_INTERVAL_MIN` — frequência com que aparecem Harry's
+- `MAX_HIGHSCORES` — quantos resultados ficam guardados no scoreboard (atualmente 10)
 
 ## Publicar no GitHub
 
@@ -77,5 +83,5 @@ Como o jogo é só ficheiros estáticos (HTML/CSS/JS), depois de publicado no Gi
 ## Ideias para o futuro
 
 - Sons ao apanhar/falhar um Harry
-- Ecrã de recordes (high score guardado localmente)
 - Diferentes tipos de comic (alguns valem mais pontos, outros são "power-ups")
+- Scoreboard online partilhado (atualmente é só local, por browser)

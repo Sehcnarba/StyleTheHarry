@@ -171,6 +171,65 @@ button {
   line-height: 1.5;
 }
 
+.link-button {
+  border: none;
+  background: none;
+  color: var(--pink-light);
+  font-weight: bold;
+  font-size: clamp(13px, 3.4vw, 15px);
+  padding: 6px 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-button:active {
+  opacity: 0.7;
+}
+
+/* ---------------------------------------------------------
+   MODAL (usado pelos recordes acedidos a partir do menu)
+   --------------------------------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 6, 28, 0.65);
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 320px;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border-radius: 22px;
+  padding: 22px 22px 20px;
+  box-shadow: 0 14px 34px var(--shadow);
+  text-align: center;
+  animation: panel-in 0.3s ease;
+}
+
+.modal-card h2 {
+  margin: 0 0 10px;
+  color: var(--purple);
+  font-size: clamp(18px, 5vw, 22px);
+}
+
+.modal-card #leaderboard-close-button {
+  margin-top: 14px;
+  border: 2px solid var(--purple);
+  background: transparent;
+  color: var(--purple);
+  border-radius: 14px;
+  padding: 10px 20px;
+  font-weight: bold;
+  font-size: 15px;
+}
+
 /* ---------------------------------------------------------
    HUD (vidas + score)
    --------------------------------------------------------- */
@@ -186,11 +245,41 @@ button {
   background: linear-gradient(180deg, rgba(43, 15, 58, 0.75), rgba(43, 15, 58, 0));
 }
 
+.hud-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  max-width: 74%;
+}
+
+.icon-button {
+  flex: 0 0 auto;
+  width: clamp(28px, 7vw, 34px);
+  height: clamp(28px, 7vw, 34px);
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--white);
+  font-size: clamp(13px, 3.6vw, 16px);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.icon-button:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.28);
+}
+
 #lives {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  max-width: 60%;
+  min-width: 0;
+  align-content: flex-start;
 }
 
 .life {
@@ -353,6 +442,8 @@ button {
   padding: 22px 30px 28px;
   box-shadow: 0 14px 34px var(--shadow);
   max-width: 340px;
+  max-height: 78vh;
+  overflow-y: auto;
   animation: panel-in 0.4s ease;
 }
 
@@ -376,6 +467,109 @@ button {
   font-weight: bold;
   color: var(--pink);
   text-shadow: 0 3px 0 var(--purple);
+}
+
+#highscore-form {
+  margin: 4px 0 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 93, 162, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.highscore-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--purple);
+}
+
+#player-name-input {
+  border: 2px solid var(--pink-light);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  text-align: center;
+  color: var(--text);
+}
+
+#player-name-input:focus {
+  outline: none;
+  border-color: var(--pink);
+}
+
+#save-score-button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  background: linear-gradient(160deg, var(--pink), var(--purple));
+  color: var(--white);
+}
+
+.leaderboard-title {
+  margin: 4px 0 6px;
+  font-size: 14px;
+  color: var(--purple);
+}
+
+.leaderboard-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(123, 44, 191, 0.06);
+  text-align: left;
+}
+
+.leaderboard-list li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 1px solid rgba(123, 44, 191, 0.12);
+}
+
+.leaderboard-list li:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-list li .rank {
+  font-weight: bold;
+  color: var(--purple);
+}
+
+.leaderboard-list li .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list li .pts {
+  font-weight: bold;
+  color: var(--pink);
+}
+
+.leaderboard-list li.is-you {
+  background: rgba(255, 93, 162, 0.18);
+  font-weight: bold;
+}
+
+.leaderboard-list li.leaderboard-empty {
+  display: block;
+  text-align: center;
+  color: #7a5c8a;
+  padding: 14px 10px;
+  font-size: 13px;
 }
 
 .gameover-buttons {

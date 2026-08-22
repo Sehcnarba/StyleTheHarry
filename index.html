@@ -29,13 +29,27 @@
       <p class="menu-instructions">
         Mexe o rato ou o dedo para andares para os lados e apanha os Harry's que caem do céu com a tua cesta!
       </p>
+
+      <button type="button" id="leaderboard-open-button" class="link-button">🏆 Recordes</button>
     </section>
+
+    <!-- ===================== MODAL: RECORDES (a partir do menu) ===================== -->
+    <div id="leaderboard-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <h2>🏆 Melhores 10</h2>
+        <ol id="leaderboard-list-menu" class="leaderboard-list"></ol>
+        <button type="button" id="leaderboard-close-button">Fechar</button>
+      </div>
+    </div>
 
     <!-- ===================== ECRÃ: JOGO ===================== -->
     <section id="screen-game" class="screen hidden" aria-hidden="true">
 
       <header id="hud">
-        <div id="lives" aria-label="Vidas"></div>
+        <div class="hud-left">
+          <button type="button" id="exit-button" class="icon-button" aria-label="Sair do jogo">✕</button>
+          <div id="lives" aria-label="Vidas"></div>
+        </div>
         <div id="score-wrap">
           <span class="score-label">SCORE</span>
           <span id="score">0</span>
@@ -65,6 +79,16 @@
         <h2>Coração partido...</h2>
         <p class="gameover-score-label">A tua pontuação:</p>
         <p id="final-score">0</p>
+
+        <form id="highscore-form" class="hidden">
+          <p class="highscore-label">🎉 Novo recorde! Introduz o teu nome:</p>
+          <input type="text" id="player-name-input" maxlength="14" placeholder="O teu nome" autocomplete="off" />
+          <button type="submit" id="save-score-button">Guardar</button>
+        </form>
+
+        <h3 class="leaderboard-title">🏆 Melhores 10</h3>
+        <ol id="leaderboard-list-gameover" class="leaderboard-list"></ol>
+
         <div class="gameover-buttons">
           <button type="button" id="retry-button">Jogar novamente</button>
           <button type="button" id="menu-button">Menu</button>

@@ -31,11 +31,14 @@ const FALLBACK_HARRY_EMOJIS = ['😍', '🤩', '😘'];
 const MAX_LIVES = 10;
 const POINTS_PER_SPEED_TIER = 20;   // a cada 20 pontos aumenta a velocidade
 const BASE_FALL_MS = 3600;          // tempo a cair do topo até ao fundo (nível 0)
-const MIN_FALL_MS = 1100;           // limite mínimo (não fica impossível)
-const FALL_MS_MULT = 0.86;          // cada nível multiplica a duração por isto
+const FALL_MS_MULT = 0.86;          // cada nível multiplica a duração por isto — sem limite, sobe para sempre
+const FALL_MS_FLOOR = 1;            // apenas uma rede de segurança técnica (evita duração 0/negativa), não é um limite de jogo
 const SPAWN_INTERVAL_MS = 950;      // intervalo entre comics a cair
 const SPAWN_INTERVAL_MIN = 480;
 const SPAWN_JITTER = 160;
+
+const HIGHSCORES_KEY = 'styleTheHarry.highscores.v1';
+const MAX_HIGHSCORES = 10;
 
 /* ---------------------------------------------------------
    ESTADO
@@ -48,6 +51,9 @@ let activeComics = [];
 let livesEls = [];
 let rafId = null;
 let spawnTimer = null;
+let highscores = loadHighscores();
+let pendingFinalScore = 0;
+let highscoreQualifies = false;
 
 /* ---------------------------------------------------------
    ELEMENTOS
@@ -68,6 +74,15 @@ const gameoverPanel = document.getElementById('gameover-panel');
 const startButton = document.getElementById('start-button');
 const retryButton = document.getElementById('retry-button');
 const menuButton = document.getElementById('menu-button');
+const exitButton = document.getElementById('exit-button');
+
+const leaderboardOpenButton = document.getElementById('leaderboard-open-button');
+const leaderboardCloseButton = document.getElementById('leaderboard-close-button');
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const leaderboardListMenu = document.getElementById('leaderboard-list-menu');
+const leaderboardListGameover = document.getElementById('leaderboard-list-gameover');
+const highscoreForm = document.getElementById('highscore-form');
+const playerNameInput = document.getElementById('player-name-input');
 
 /* ---------------------------------------------------------
    SUBSTITUIÇÃO DE EMOJI POR IMAGEM (placeholders -> arte final)
@@ -101,6 +116,90 @@ function createComicSprite() {
   const span = document.createElement('span');
   span.textContent = FALLBACK_HARRY_EMOJIS[Math.floor(Math.random() * FALLBACK_HARRY_EMOJIS.length)];
   return span;
+}
+
+/* ---------------------------------------------------------
+   RECORDES (top 10, guardados no browser do jogador)
+   ----------------------------------------------------------- */
+function loadHighscores() {
+  try {
+    const raw = localStorage.getItem(HIGHSCORES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((e) => e && typeof e.name === 'string' && typeof e.score === 'number')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_HIGHSCORES);
+  } catch (err) {
+    console.warn('Não foi possível ler os recordes guardados:', err);
+    return [];
+  }
+}
+
+function saveHighscores() {
+  try {
+    localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(highscores));
+  } catch (err) {
+    console.warn('Não foi possível guardar os recordes:', err);
+  }
+}
+
+function qualifiesForHighscore(candidateScore) {
+  if (candidateScore <= 0) return false;
+  if (highscores.length < MAX_HIGHSCORES) return true;
+  const lowest = highscores[highscores.length - 1].score;
+  return candidateScore > lowest;
+}
+
+function addHighscore(name, finalScore) {
+  const cleanName = (name || '').trim().slice(0, 14) || 'Anónimo';
+  const entry = { name: cleanName, score: finalScore };
+  highscores.push(entry);
+  highscores.sort((a, b) => b.score - a.score);
+  if (highscores.length > MAX_HIGHSCORES) highscores.length = MAX_HIGHSCORES;
+  saveHighscores();
+  return entry;
+}
+
+function renderLeaderboard(containerEl, highlightEntry) {
+  containerEl.innerHTML = '';
+
+  if (!highscores.length) {
+    const li = document.createElement('li');
+    li.className = 'leaderboard-empty';
+    li.textContent = 'Ainda não há recordes — sê o/a primeiro/a!';
+    containerEl.appendChild(li);
+    return;
+  }
+
+  highscores.forEach((entry, i) => {
+    const li = document.createElement('li');
+    if (highlightEntry && entry === highlightEntry) li.classList.add('is-you');
+
+    const rank = document.createElement('span');
+    rank.className = 'rank';
+    rank.textContent = (i + 1) + '.';
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = entry.name;
+
+    const pts = document.createElement('span');
+    pts.className = 'pts';
+    pts.textContent = String(entry.score);
+
+    li.append(rank, name, pts);
+    containerEl.appendChild(li);
+  });
+}
+
+function submitHighscore() {
+  if (!highscoreQualifies) return;
+  const entry = addHighscore(playerNameInput.value, pendingFinalScore);
+  highscoreQualifies = false;
+  highscoreForm.classList.add('hidden');
+  renderLeaderboard(leaderboardListGameover, entry);
 }
 
 /* ---------------------------------------------------------
@@ -141,6 +240,19 @@ function loseLife() {
   }
 }
 
+function forceLoseAllLives() {
+  if (gameState !== 'playing') return;
+  livesEls.forEach((el) => el.classList.add('lost'));
+  lives = 0;
+
+  // Pára o jogo já (sem mais comics/spawns) e só depois mostra o ecrã de
+  // game over, dando tempo à animação dos corações a partir.
+  gameState = 'ending';
+  if (rafId) cancelAnimationFrame(rafId);
+  if (spawnTimer) clearTimeout(spawnTimer);
+  setTimeout(triggerGameOver, 450);
+}
+
 /* ---------------------------------------------------------
    DIFICULDADE (velocidade de queda)
    ----------------------------------------------------------- */
@@ -150,7 +262,9 @@ function currentSpeedTier() {
 
 function currentFallDurationMs() {
   const tier = currentSpeedTier();
-  return Math.max(MIN_FALL_MS, Math.round(BASE_FALL_MS * Math.pow(FALL_MS_MULT, tier)));
+  // Sem limite de dificuldade: a cada tier (20 pontos) fica sempre mais rápido.
+  // FALL_MS_FLOOR é só uma rede de segurança técnica, não uma dificuldade máxima.
+  return Math.max(FALL_MS_FLOOR, Math.round(BASE_FALL_MS * Math.pow(FALL_MS_MULT, tier)));
 }
 
 function currentSpawnIntervalMs() {
@@ -324,12 +438,28 @@ function triggerGameOver() {
   if (spawnTimer) clearTimeout(spawnTimer);
   clearComics();
 
+  pendingFinalScore = score;
+  highscoreQualifies = qualifiesForHighscore(pendingFinalScore);
+
   finalScoreEl.textContent = String(score);
   gameoverPanel.classList.add('hidden');
+
+  if (highscoreQualifies) {
+    playerNameInput.value = '';
+    highscoreForm.classList.remove('hidden');
+  } else {
+    highscoreForm.classList.add('hidden');
+  }
+  renderLeaderboard(leaderboardListGameover, null);
+
   showScreen('gameover');
 
-  // O coração parte-se primeiro; o painel com o score aparece a seguir.
-  setTimeout(() => gameoverPanel.classList.remove('hidden'), 1000);
+  // O coração parte-se primeiro; o painel com o score (e o formulário de
+  // recorde, se for o caso) aparece a seguir.
+  setTimeout(() => {
+    gameoverPanel.classList.remove('hidden');
+    if (highscoreQualifies) playerNameInput.focus();
+  }, 1000);
 }
 
 function backToMenu() {
@@ -350,6 +480,23 @@ window.addEventListener('keydown', onKeyDown);
 startButton.addEventListener('click', startGame);
 retryButton.addEventListener('click', startGame);
 menuButton.addEventListener('click', backToMenu);
+exitButton.addEventListener('click', forceLoseAllLives);
+
+highscoreForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  submitHighscore();
+});
+
+leaderboardOpenButton.addEventListener('click', () => {
+  renderLeaderboard(leaderboardListMenu, null);
+  leaderboardModal.classList.remove('hidden');
+  leaderboardModal.setAttribute('aria-hidden', 'false');
+});
+
+leaderboardCloseButton.addEventListener('click', () => {
+  leaderboardModal.classList.add('hidden');
+  leaderboardModal.setAttribute('aria-hidden', 'true');
+});
 
 /* ---------------------------------------------------------
    INÍCIO
