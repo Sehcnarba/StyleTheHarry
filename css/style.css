@@ -1,0 +1,478 @@
+/* =========================================================
+   Style The Harry — folhas de estilo
+   ========================================================= */
+
+:root {
+  --bg-top: #2b0f3a;
+  --bg-bottom: #6a1b57;
+  --pink: #ff5da2;
+  --pink-light: #ffb3d9;
+  --purple: #7b2cbf;
+  --white: #fff8fb;
+  --text: #2b0f3a;
+  --panel: rgba(255, 255, 255, 0.94);
+  --shadow: rgba(43, 15, 58, 0.45);
+  --life-size: clamp(16px, 3.2vw, 24px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at 50% 0%, var(--bg-bottom), var(--bg-top) 75%);
+  color: var(--text);
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.emoji {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Quando um placeholder de emoji é substituído por uma imagem real
+   (ver ASSETS em js/game.js), a imagem herda o tamanho do emoji que troca. */
+.emoji img {
+  height: 1em;
+  width: 1em;
+  object-fit: cover;
+  border-radius: 16%;
+  vertical-align: middle;
+}
+
+/* ---------------------------------------------------------
+   Ecrãs (menu / jogo / game over) — ocupam sempre o ecrã todo
+   --------------------------------------------------------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------
+   MENU
+   --------------------------------------------------------- */
+#screen-menu {
+  justify-content: center;
+  gap: clamp(14px, 3vh, 26px);
+  padding: calc(24px + var(--safe-top)) 20px calc(24px + var(--safe-bottom));
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(28px, 8vw, 52px);
+  color: var(--white);
+  text-shadow: 0 4px 0 var(--purple), 0 8px 18px var(--shadow);
+  letter-spacing: 1px;
+}
+
+.title-heart {
+  display: inline-block;
+  margin-left: 6px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.menu-girl .emoji {
+  font-size: clamp(64px, 16vw, 110px);
+  filter: drop-shadow(0 8px 14px var(--shadow));
+}
+
+.heart-frame {
+  position: relative;
+  width: clamp(140px, 34vw, 220px);
+  height: clamp(140px, 34vw, 220px);
+  border: none;
+  background: none;
+  padding: 0;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 88'><path d='M50,88 C20,65 5,45 5,28 C5,10 20,0 35,0 C45,0 50,8 50,15 C50,8 55,0 65,0 C80,0 95,10 95,28 C95,45 80,65 50,88 Z'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 88'><path d='M50,88 C20,65 5,45 5,28 C5,10 20,0 35,0 C45,0 50,8 50,15 C50,8 55,0 65,0 C80,0 95,10 95,28 C95,45 80,65 50,88 Z'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  background: linear-gradient(160deg, var(--pink), var(--purple));
+  box-shadow: 0 10px 26px var(--shadow);
+  animation: heartbeat 1.8s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+
+.heart-frame:active {
+  transform: scale(0.94);
+}
+
+.heart-frame-inner {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+}
+
+.heart-frame-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heart-frame-inner .emoji {
+  font-size: clamp(48px, 12vw, 80px);
+}
+
+.menu-hint {
+  margin: 0;
+  color: var(--pink-light);
+  font-weight: bold;
+  font-size: clamp(13px, 3.4vw, 16px);
+}
+
+.menu-instructions {
+  max-width: 420px;
+  margin: 0;
+  color: var(--white);
+  opacity: 0.85;
+  font-size: clamp(12px, 3vw, 15px);
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------
+   HUD (vidas + score)
+   --------------------------------------------------------- */
+#hud {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + var(--safe-top)) 14px 10px;
+  background: linear-gradient(180deg, rgba(43, 15, 58, 0.75), rgba(43, 15, 58, 0));
+}
+
+#lives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 60%;
+}
+
+.life {
+  display: inline-block;
+  font-size: var(--life-size);
+  filter: drop-shadow(0 2px 3px var(--shadow));
+}
+
+.life.lost {
+  animation: life-break 0.55s ease forwards;
+}
+
+#score-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--white);
+  line-height: 1.1;
+}
+
+.score-label {
+  font-size: clamp(10px, 2.4vw, 12px);
+  letter-spacing: 2px;
+  opacity: 0.75;
+}
+
+#score {
+  font-size: clamp(22px, 6vw, 32px);
+  font-weight: bold;
+  text-shadow: 0 2px 0 var(--purple);
+}
+
+#score.bump {
+  animation: score-bump 0.25s ease;
+}
+
+/* ---------------------------------------------------------
+   ÁREA DE JOGO
+   --------------------------------------------------------- */
+#screen-game {
+  justify-content: flex-start;
+}
+
+#game-area {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.comic {
+  position: absolute;
+  top: -12%;
+  font-size: clamp(32px, 8vw, 50px);
+  filter: drop-shadow(0 6px 10px var(--shadow));
+  will-change: top, left;
+  pointer-events: none;
+}
+
+.comic img {
+  width: 1em;
+  height: 1em;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.comic.caught {
+  animation: comic-caught 0.35s ease forwards;
+}
+
+.comic.missed {
+  animation: comic-missed 0.4s ease forwards;
+}
+
+.float-score {
+  position: absolute;
+  font-weight: bold;
+  color: var(--white);
+  text-shadow: 0 2px 4px var(--shadow);
+  pointer-events: none;
+  animation: float-up 0.7s ease forwards;
+  z-index: 6;
+}
+
+#girl {
+  position: absolute;
+  bottom: calc(3% + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  transition: left 0.08s linear;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+#girl .emoji {
+  font-size: clamp(50px, 13vw, 86px);
+  filter: drop-shadow(0 8px 10px var(--shadow));
+}
+
+#basket {
+  position: relative;
+  margin-bottom: -6px;
+  z-index: 2;
+}
+
+#basket .emoji {
+  font-size: clamp(30px, 8vw, 48px);
+  filter: drop-shadow(0 4px 6px var(--shadow));
+}
+
+#basket.catch-bounce {
+  animation: basket-bounce 0.25s ease;
+}
+
+/* ---------------------------------------------------------
+   GAME OVER
+   --------------------------------------------------------- */
+#screen-gameover {
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+  padding: 24px;
+}
+
+.broken-heart {
+  position: relative;
+  width: clamp(120px, 30vw, 180px);
+  height: clamp(120px, 30vw, 180px);
+}
+
+.heart-half {
+  position: absolute;
+  inset: 0;
+  font-size: clamp(120px, 30vw, 180px);
+  line-height: 1;
+}
+
+.heart-half-left {
+  clip-path: inset(0 50% 0 0);
+  -webkit-clip-path: inset(0 50% 0 0);
+  animation: break-left 0.9s ease forwards;
+  animation-delay: 0.15s;
+}
+
+.heart-half-right {
+  clip-path: inset(0 0 0 50%);
+  -webkit-clip-path: inset(0 0 0 50%);
+  animation: break-right 0.9s ease forwards;
+  animation-delay: 0.15s;
+}
+
+#gameover-panel {
+  background: var(--panel);
+  border-radius: 22px;
+  padding: 22px 30px 28px;
+  box-shadow: 0 14px 34px var(--shadow);
+  max-width: 340px;
+  animation: panel-in 0.4s ease;
+}
+
+#gameover-panel h2 {
+  margin: 0 0 4px;
+  color: var(--purple);
+  font-size: clamp(20px, 5vw, 26px);
+}
+
+.gameover-score-label {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #7a5c8a;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+#final-score {
+  margin: 2px 0 16px;
+  font-size: clamp(38px, 10vw, 56px);
+  font-weight: bold;
+  color: var(--pink);
+  text-shadow: 0 3px 0 var(--purple);
+}
+
+.gameover-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gameover-buttons button {
+  border: none;
+  border-radius: 14px;
+  padding: 13px 18px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#retry-button {
+  background: linear-gradient(160deg, var(--pink), var(--purple));
+  color: var(--white);
+  box-shadow: 0 8px 16px var(--shadow);
+}
+
+#menu-button {
+  background: transparent;
+  color: var(--purple);
+  border: 2px solid var(--purple);
+}
+
+/* ---------------------------------------------------------
+   Animações
+   --------------------------------------------------------- */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.06); }
+  30% { transform: scale(0.98); }
+  45% { transform: scale(1.04); }
+}
+
+@keyframes life-break {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  25% { transform: scale(1.3) rotate(-12deg); }
+  50% { transform: scale(1.25) rotate(10deg); }
+  75% { transform: scale(0.85) rotate(-6deg); opacity: 0.6; }
+  100% { transform: scale(0.6) rotate(0deg); opacity: 0.25; }
+}
+
+@keyframes score-bump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes comic-caught {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.6) rotate(15deg); opacity: 0; }
+}
+
+@keyframes comic-missed {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(30px) rotate(25deg); opacity: 0; }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-46px); opacity: 0; }
+}
+
+@keyframes basket-bounce {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-8px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes break-left {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-38px, 50px) rotate(-45deg); opacity: 0; }
+}
+
+@keyframes break-right {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(38px, 50px) rotate(45deg); opacity: 0; }
+}
+
+@keyframes panel-in {
+  0% { transform: translateY(14px) scale(0.96); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

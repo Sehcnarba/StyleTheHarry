@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Style The Harry</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- ===================== ECRÃ: MENU ===================== -->
+    <section id="screen-menu" class="screen" aria-hidden="false">
+      <h1 class="title">Style The Harry<span class="title-heart">💗</span></h1>
+
+      <div class="menu-girl" id="menu-girl" aria-hidden="true">
+        <span class="emoji" id="menu-girl-emoji">🙂</span>
+      </div>
+
+      <button type="button" id="start-button" class="heart-frame" aria-label="Começar jogo">
+        <span class="heart-frame-inner">
+          <span class="emoji" id="menu-harry-emoji">😍</span>
+        </span>
+      </button>
+
+      <p class="menu-hint">Toca no coração para começar</p>
+
+      <p class="menu-instructions">
+        Mexe o rato ou o dedo para andares para os lados e apanha os Harry's que caem do céu com a tua cesta!
+      </p>
+    </section>
+
+    <!-- ===================== ECRÃ: JOGO ===================== -->
+    <section id="screen-game" class="screen hidden" aria-hidden="true">
+
+      <header id="hud">
+        <div id="lives" aria-label="Vidas"></div>
+        <div id="score-wrap">
+          <span class="score-label">SCORE</span>
+          <span id="score">0</span>
+        </div>
+      </header>
+
+      <div id="game-area">
+        <!-- comics caem aqui dentro, gerados via JS -->
+
+        <div id="girl" aria-hidden="true">
+          <div id="basket">
+            <span class="emoji" id="basket-emoji">🧺</span>
+          </div>
+          <span class="emoji" id="girl-emoji">🏃‍♀️</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ECRÃ: GAME OVER ===================== -->
+    <section id="screen-gameover" class="screen hidden" aria-hidden="true">
+      <div class="broken-heart" id="broken-heart" aria-hidden="true">
+        <span class="heart-half heart-half-left">❤️</span>
+        <span class="heart-half heart-half-right">❤️</span>
+      </div>
+
+      <div id="gameover-panel" class="hidden">
+        <h2>Coração partido...</h2>
+        <p class="gameover-score-label">A tua pontuação:</p>
+        <p id="final-score">0</p>
+        <div class="gameover-buttons">
+          <button type="button" id="retry-button">Jogar novamente</button>
+          <button type="button" id="menu-button">Menu</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
