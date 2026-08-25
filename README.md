@@ -9,13 +9,50 @@ Abre `index.html` num browser (basta fazer duplo-clique no ficheiro, ou usar uma
 - **Mover:** move o rato (ou o dedo, em telemóvel/tablet) para a esquerda e direita — a rapariga segue-te. As setas ← → do teclado também funcionam.
 - **Objetivo:** apanha os Harry's *dentro da cesta* antes de caírem ao chão. Cada apanha = **+1 ponto**.
 - **Vidas:** começas com **10 vidas** (corações no topo). Perdes uma vida sempre que um Harry cai sem ser apanhado na cesta.
-- **Sair a meio do jogo:** o botão ✕ no canto superior esquerdo termina o jogo de imediato (perdes todas as vidas automaticamente).
-- **Dificuldade:** a cada **20 pontos**, a velocidade de queda aumenta — sem limite, até ficar mesmo impossível de continuar.
+- **Pausa:** o botão ⏸️ (ao lado do ✕) pausa o jogo a qualquer momento — os Harry's ficam parados no ar até continuares. Também dá para pausar/continuar com a tecla **Esc** ou **P**.
+- **Sair a meio do jogo:** o botão ✕ no canto superior esquerdo (ou "Sair" no menu de pausa) termina o jogo de imediato (perdes todas as vidas automaticamente).
+- **Dificuldade:** a cada **10 pontos**, a velocidade de queda aumenta — sem limite, até ficar mesmo impossível de continuar. Cada Harry cai a uma velocidade ligeiramente diferente (ao acaso, à volta da velocidade base do momento) e podem cair **até 3 Harrys em simultâneo**.
 - **Fim de jogo:** quando as vidas chegam a 0 (ou saíres pelo botão ✕), o coração parte-se e aparece o teu score final. Se entrares no **top 10**, é-te pedido o nome para guardar o recorde.
 
 ## Recordes (scoreboard)
 
-O jogo guarda os **10 melhores resultados** no próprio browser onde é jogado (usando `localStorage` — cada browser/computador tem a sua lista, não é partilhada online). Se acabares o jogo com um score que entra no top 10, aparece um pequeno formulário a pedir o teu nome antes dos botões finais. A lista dos melhores 10 pode ser vista a qualquer momento a partir do menu, no botão "🏆 Recordes".
+O top10 é **partilhado online** (via Firebase/Firestore) entre todos os jogadores que acedam ao mesmo site — quem estiver a jogar no GitHub Pages (ou noutro sítio onde o jogo esteja publicado) compete pelo mesmo top10. Se acabares o jogo com um score que entra no top 10, aparece um pequeno formulário a pedir o teu nome antes dos botões finais.
+
+O jogo guarda sempre também uma cópia no `localStorage` do teu browser, como reserva: se não houver internet (ou a Firebase não carregar por alguma razão), o jogo continua a funcionar normalmente, só que o top10 mostrado fica limitado aos teus próprios resultados nesse browser/computador, em vez do top10 partilhado.
+
+A lista pode ser vista a qualquer momento a partir do menu, no botão "🏆 Recordes".
+
+### Configuração da Firebase
+
+A ligação está em dois ficheiros:
+
+- `js/firebase-config.js` — a configuração do projeto Firebase (chaves públicas, geradas na consola da Firebase). Se um dia quiseres usar outro projeto Firebase, basta substituir os valores aqui.
+- `js/leaderboard-online.js` — a camada que fala com o Firestore (ler o top10, guardar um novo score). Se a Firebase não estiver disponível, este ficheiro degrada-se sozinho e o jogo passa a usar só o `localStorage`.
+
+No projeto Firebase (consola → Firestore Database → separador "Regras"), as regras de segurança usadas são:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /highscores/{entry} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['name', 'score', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 14 &&
+        request.resource.data.score is int &&
+        request.resource.data.score > 0 &&
+        request.resource.data.score <= 100000 &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}
+```
+
+Isto deixa qualquer pessoa ler o top10, mas só permite criar uma entrada nova e válida (nome curto, score dentro de um intervalo plausível) — nunca apagar ou alterar entradas de outros jogadores. O plano gratuito da Firebase ("Spark") não precisa de cartão de crédito e inclui, por dia, 50 mil leituras e 20 mil escritas — muito acima do que um jogo como este costuma gastar.
 
 ## Estrutura do projeto
 
@@ -25,7 +62,9 @@ StyleTheHarry/
 ├── css/
 │   └── style.css           # Todo o estilo visual e animações
 ├── js/
-│   └── game.js             # Lógica do jogo (estado, física simples, colisões, HUD)
+│   ├── game.js                 # Lógica do jogo (estado, física simples, colisões, HUD)
+│   ├── firebase-config.js      # Configuração do projeto Firebase (recordes online)
+│   └── leaderboard-online.js   # Camada que fala com o Firestore (top10 partilhado)
 ├── assets/
 │   └── images/             # Onde entram as imagens finais (ver README dessa pasta)
 ├── .gitignore
@@ -43,9 +82,11 @@ Os 16 Harry's que caem já usam as tuas fotos (`assets/images/harry-1.png` a `ha
 No topo de `js/game.js` há um bloco de constantes fácil de ajustar:
 
 - `MAX_LIVES` — número de vidas (atualmente 10)
-- `POINTS_PER_SPEED_TIER` — pontos necessários para subir de velocidade (atualmente 20)
+- `POINTS_PER_SPEED_TIER` — pontos necessários para subir de velocidade (atualmente 10)
 - `BASE_FALL_MS` / `FALL_MS_MULT` — controlam a velocidade de queda inicial e o quão rápido isso escala (sem limite máximo, por decisão de desenho — `FALL_MS_FLOOR` é só uma rede de segurança técnica, não uma dificuldade máxima)
-- `SPAWN_INTERVAL_MS` / `SPAWN_INTERVAL_MIN` — frequência com que aparecem Harry's
+- `FALL_SPEED_VARIATION` — variação aleatória de velocidade de cada Harry à volta da base do tier (atualmente ±35%)
+- `SPAWN_INTERVAL_MS` / `SPAWN_INTERVAL_MIN` — frequência com que aparecem novas vagas de Harry's
+- `MAX_SIMULTANEOUS_HARRYS` — quantos Harry's, no máximo, podem cair ao mesmo tempo numa vaga (atualmente até 3, ao acaso)
 - `MAX_HIGHSCORES` — quantos resultados ficam guardados no scoreboard (atualmente 10)
 
 ## Publicar no GitHub
@@ -84,4 +125,3 @@ Como o jogo é só ficheiros estáticos (HTML/CSS/JS), depois de publicado no Gi
 
 - Sons ao apanhar/falhar um Harry
 - Diferentes tipos de comic (alguns valem mais pontos, outros são "power-ups")
-- Scoreboard online partilhado (atualmente é só local, por browser)

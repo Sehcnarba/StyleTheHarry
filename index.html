@@ -48,6 +48,7 @@
       <header id="hud">
         <div class="hud-left">
           <button type="button" id="exit-button" class="icon-button" aria-label="Sair do jogo">✕</button>
+          <button type="button" id="pause-button" class="icon-button" aria-label="Pausar jogo">⏸️</button>
           <div id="lives" aria-label="Vidas"></div>
         </div>
         <div id="score-wrap">
@@ -64,6 +65,18 @@
             <span class="emoji" id="basket-emoji">🧺</span>
           </div>
           <span class="emoji" id="girl-emoji">🏃‍♀️</span>
+        </div>
+      </div>
+
+      <!-- ================= OVERLAY: PAUSA ================= -->
+      <div id="pause-overlay" class="modal hidden" aria-hidden="true">
+        <div class="modal-card pause-card">
+          <h2>⏸️ Pausa</h2>
+          <p class="pause-score-label">Pontuação atual: <strong id="pause-score">0</strong></p>
+          <div class="pause-buttons">
+            <button type="button" id="resume-button">▶️ Continuar</button>
+            <button type="button" id="pause-exit-button">🚪 Sair</button>
+          </div>
         </div>
       </div>
     </section>
@@ -97,6 +110,14 @@
     </section>
 
   </div>
+
+  <!-- Firebase — recordes online partilhados por todos os jogadores.
+       Se não carregar (sem internet, bloqueador, etc.), o jogo continua
+       a funcionar normalmente só com recordes locais. -->
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/leaderboard-online.js"></script>
 
   <script src="js/game.js"></script>
 </body>

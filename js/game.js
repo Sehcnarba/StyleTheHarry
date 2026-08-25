@@ -46,13 +46,15 @@ const FALLBACK_HARRY_EMOJIS = ['😍', '🤩', '😘'];
    CONFIGURAÇÃO DO JOGO
    ----------------------------------------------------------- */
 const MAX_LIVES = 10;
-const POINTS_PER_SPEED_TIER = 20;   // a cada 20 pontos aumenta a velocidade
+const POINTS_PER_SPEED_TIER = 10;   // a cada 10 pontos aumenta a velocidade
 const BASE_FALL_MS = 3600;          // tempo a cair do topo até ao fundo (nível 0)
 const FALL_MS_MULT = 0.86;          // cada nível multiplica a duração por isto — sem limite, sobe para sempre
 const FALL_MS_FLOOR = 1;            // apenas uma rede de segurança técnica (evita duração 0/negativa), não é um limite de jogo
-const SPAWN_INTERVAL_MS = 950;      // intervalo entre comics a cair
+const FALL_SPEED_VARIATION = 0.35;  // cada Harry cai com velocidade base ±35%, ao acaso
+const SPAWN_INTERVAL_MS = 950;      // intervalo entre "vagas" de comics a cair
 const SPAWN_INTERVAL_MIN = 480;
 const SPAWN_JITTER = 160;
+const MAX_SIMULTANEOUS_HARRYS = 3;  // cada vaga larga entre 1 e 3 Harrys, ao acaso
 
 const HIGHSCORES_KEY = 'styleTheHarry.highscores.v1';
 const MAX_HIGHSCORES = 10;
@@ -60,7 +62,7 @@ const MAX_HIGHSCORES = 10;
 /* ---------------------------------------------------------
    ESTADO
    ----------------------------------------------------------- */
-let gameState = 'menu'; // 'menu' | 'playing' | 'gameover'
+let gameState = 'menu'; // 'menu' | 'playing' | 'paused' | 'ending' | 'gameover'
 let score = 0;
 let lives = MAX_LIVES;
 let pointerX = null;
@@ -71,6 +73,7 @@ let spawnTimer = null;
 let highscores = loadHighscores();
 let pendingFinalScore = 0;
 let highscoreQualifies = false;
+let pausedAt = null;
 
 /* ---------------------------------------------------------
    ELEMENTOS
@@ -92,6 +95,11 @@ const startButton = document.getElementById('start-button');
 const retryButton = document.getElementById('retry-button');
 const menuButton = document.getElementById('menu-button');
 const exitButton = document.getElementById('exit-button');
+const pauseButton = document.getElementById('pause-button');
+const pauseOverlay = document.getElementById('pause-overlay');
+const pauseScoreEl = document.getElementById('pause-score');
+const resumeButton = document.getElementById('resume-button');
+const pauseExitButton = document.getElementById('pause-exit-button');
 
 const leaderboardOpenButton = document.getElementById('leaderboard-open-button');
 const leaderboardCloseButton = document.getElementById('leaderboard-close-button');
@@ -100,6 +108,7 @@ const leaderboardListMenu = document.getElementById('leaderboard-list-menu');
 const leaderboardListGameover = document.getElementById('leaderboard-list-gameover');
 const highscoreForm = document.getElementById('highscore-form');
 const playerNameInput = document.getElementById('player-name-input');
+const saveScoreButton = document.getElementById('save-score-button');
 
 /* ---------------------------------------------------------
    SUBSTITUIÇÃO DE EMOJI POR IMAGEM (placeholders -> arte final)
@@ -136,7 +145,13 @@ function createComicSprite() {
 }
 
 /* ---------------------------------------------------------
-   RECORDES (top 10, guardados no browser do jogador)
+   RECORDES — locais (localStorage) + online (Firestore, partilhados)
+   ----------------------------------------------------------
+   `highscores` é sempre a cópia local, guardada no browser do jogador —
+   funciona offline e serve de reserva. Quando a Firebase está disponível
+   (ver js/leaderboard-online.js), `onlineTop10Cache` guarda a última
+   lista partilhada por TODOS os jogadores do site, e passa a ser essa
+   a lista mostrada/usada para saber se um score entra no top10.
    ----------------------------------------------------------- */
 function loadHighscores() {
   try {
@@ -162,27 +177,77 @@ function saveHighscores() {
   }
 }
 
+let onlineTop10Cache = null; // null = ainda não carregado (ou indisponível) — usa-se o local
+let onlineFetchInFlight = null;
+
+function isOnlineLeaderboardAvailable() {
+  return typeof OnlineLeaderboard !== 'undefined' && OnlineLeaderboard.isAvailable();
+}
+
+// A lista "efetiva": online (partilhada) se já a tivermos, senão a local.
+function getEffectiveHighscores() {
+  return onlineTop10Cache !== null ? onlineTop10Cache : highscores;
+}
+
+function refreshOnlineLeaderboard() {
+  if (!isOnlineLeaderboardAvailable()) return Promise.resolve(null);
+  if (onlineFetchInFlight) return onlineFetchInFlight;
+
+  onlineFetchInFlight = OnlineLeaderboard.fetchTop10()
+    .then((list) => {
+      onlineFetchInFlight = null;
+      if (list) onlineTop10Cache = list;
+      return onlineTop10Cache;
+    })
+    .catch(() => {
+      onlineFetchInFlight = null;
+      return onlineTop10Cache;
+    });
+
+  return onlineFetchInFlight;
+}
+
 function qualifiesForHighscore(candidateScore) {
   if (candidateScore <= 0) return false;
-  if (highscores.length < MAX_HIGHSCORES) return true;
-  const lowest = highscores[highscores.length - 1].score;
+  const list = getEffectiveHighscores();
+  if (list.length < MAX_HIGHSCORES) return true;
+  const lowest = list[list.length - 1].score;
   return candidateScore > lowest;
 }
 
-function addHighscore(name, finalScore) {
+async function addHighscore(name, finalScore) {
   const cleanName = (name || '').trim().slice(0, 14) || 'Anónimo';
   const entry = { name: cleanName, score: finalScore };
+
+  // Guarda sempre uma cópia local — funciona offline e serve de reserva.
   highscores.push(entry);
   highscores.sort((a, b) => b.score - a.score);
   if (highscores.length > MAX_HIGHSCORES) highscores.length = MAX_HIGHSCORES;
   saveHighscores();
+
+  // Se houver ligação à Firebase, o score conta também para o top10
+  // partilhado por todos os jogadores do site.
+  if (isOnlineLeaderboardAvailable()) {
+    await OnlineLeaderboard.submitScore(cleanName, finalScore);
+    await refreshOnlineLeaderboard();
+  }
+
   return entry;
 }
 
-function renderLeaderboard(containerEl, highlightEntry) {
+function renderLeaderboard(containerEl, highlight) {
   containerEl.innerHTML = '';
 
-  if (!highscores.length) {
+  const list = getEffectiveHighscores();
+
+  if (onlineTop10Cache === null && isOnlineLeaderboardAvailable()) {
+    const loading = document.createElement('li');
+    loading.className = 'leaderboard-loading';
+    loading.textContent = 'A carregar recordes online...';
+    containerEl.appendChild(loading);
+  }
+
+  if (!list.length) {
     const li = document.createElement('li');
     li.className = 'leaderboard-empty';
     li.textContent = 'Ainda não há recordes — sê o/a primeiro/a!';
@@ -190,9 +255,11 @@ function renderLeaderboard(containerEl, highlightEntry) {
     return;
   }
 
-  highscores.forEach((entry, i) => {
+  list.forEach((entry, i) => {
     const li = document.createElement('li');
-    if (highlightEntry && entry === highlightEntry) li.classList.add('is-you');
+    if (highlight && entry.name === highlight.name && entry.score === highlight.score) {
+      li.classList.add('is-you');
+    }
 
     const rank = document.createElement('span');
     rank.className = 'rank';
@@ -211,12 +278,24 @@ function renderLeaderboard(containerEl, highlightEntry) {
   });
 }
 
-function submitHighscore() {
+async function submitHighscore() {
   if (!highscoreQualifies) return;
-  const entry = addHighscore(playerNameInput.value, pendingFinalScore);
+
+  if (saveScoreButton) {
+    saveScoreButton.disabled = true;
+    saveScoreButton.textContent = 'A guardar...';
+  }
+
+  const entry = await addHighscore(playerNameInput.value, pendingFinalScore);
+
   highscoreQualifies = false;
   highscoreForm.classList.add('hidden');
   renderLeaderboard(leaderboardListGameover, entry);
+
+  if (saveScoreButton) {
+    saveScoreButton.disabled = false;
+    saveScoreButton.textContent = 'Guardar';
+  }
 }
 
 /* ---------------------------------------------------------
@@ -258,7 +337,9 @@ function loseLife() {
 }
 
 function forceLoseAllLives() {
-  if (gameState !== 'playing') return;
+  if (gameState !== 'playing' && gameState !== 'paused') return;
+  hidePauseOverlay();
+  pausedAt = null;
   livesEls.forEach((el) => el.classList.add('lost'));
   lives = 0;
 
@@ -271,6 +352,54 @@ function forceLoseAllLives() {
 }
 
 /* ---------------------------------------------------------
+   PAUSA
+   ----------------------------------------------------------- */
+function showPauseOverlay() {
+  pauseOverlay.classList.remove('hidden');
+  pauseOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function hidePauseOverlay() {
+  pauseOverlay.classList.add('hidden');
+  pauseOverlay.setAttribute('aria-hidden', 'true');
+}
+
+function pauseGame() {
+  if (gameState !== 'playing') return;
+  gameState = 'paused';
+  pausedAt = performance.now();
+
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  if (spawnTimer) clearTimeout(spawnTimer);
+  spawnTimer = null;
+
+  pauseScoreEl.textContent = String(score);
+  showPauseOverlay();
+}
+
+function resumeGame() {
+  if (gameState !== 'paused') return;
+
+  // Todos os comics em queda "saltam" para a frente o mesmo tempo que o
+  // jogo esteve em pausa, para não parecer que teleportam ao continuar.
+  const pauseDuration = performance.now() - pausedAt;
+  activeComics.forEach((c) => { c.startTime += pauseDuration; });
+  pausedAt = null;
+
+  gameState = 'playing';
+  hidePauseOverlay();
+
+  spawnTimer = setTimeout(scheduleNextSpawn, 400);
+  rafId = requestAnimationFrame(tick);
+}
+
+function togglePause() {
+  if (gameState === 'playing') pauseGame();
+  else if (gameState === 'paused') resumeGame();
+}
+
+/* ---------------------------------------------------------
    DIFICULDADE (velocidade de queda)
    ----------------------------------------------------------- */
 function currentSpeedTier() {
@@ -279,9 +408,18 @@ function currentSpeedTier() {
 
 function currentFallDurationMs() {
   const tier = currentSpeedTier();
-  // Sem limite de dificuldade: a cada tier (20 pontos) fica sempre mais rápido.
+  // Sem limite de dificuldade: a cada tier (POINTS_PER_SPEED_TIER pontos) fica sempre mais rápido.
   // FALL_MS_FLOOR é só uma rede de segurança técnica, não uma dificuldade máxima.
-  return Math.max(FALL_MS_FLOOR, Math.round(BASE_FALL_MS * Math.pow(FALL_MS_MULT, tier)));
+  const baseDuration = BASE_FALL_MS * Math.pow(FALL_MS_MULT, tier);
+
+  // Cada Harry tem a sua própria velocidade, ±FALL_SPEED_VARIATION à volta da
+  // base do tier atual: um fator aleatório entre (1 - X) e (1 + X) na
+  // *velocidade* — como duração e velocidade são inversas, dividimos a
+  // duração base por esse fator (fator > 1 = mais rápido = cai em menos tempo).
+  const speedFactor = 1 + (Math.random() * 2 - 1) * FALL_SPEED_VARIATION;
+  const randomizedDuration = baseDuration / speedFactor;
+
+  return Math.max(FALL_MS_FLOOR, Math.round(randomizedDuration));
 }
 
 function currentSpawnIntervalMs() {
@@ -347,7 +485,12 @@ function spawnComic() {
 
 function scheduleNextSpawn() {
   if (gameState !== 'playing') return;
-  spawnComic();
+
+  // Cada vaga larga entre 1 e MAX_SIMULTANEOUS_HARRYS Harrys em simultâneo,
+  // ao acaso — cada um com a sua posição e velocidade próprias.
+  const count = 1 + Math.floor(Math.random() * MAX_SIMULTANEOUS_HARRYS);
+  for (let i = 0; i < count; i++) spawnComic();
+
   const base = currentSpawnIntervalMs();
   const jitter = Math.random() * SPAWN_JITTER - SPAWN_JITTER / 2;
   spawnTimer = setTimeout(scheduleNextSpawn, Math.max(280, base + jitter));
@@ -451,6 +594,7 @@ function startGame() {
 
 function triggerGameOver() {
   gameState = 'gameover';
+  hidePauseOverlay();
   if (rafId) cancelAnimationFrame(rafId);
   if (spawnTimer) clearTimeout(spawnTimer);
   clearComics();
@@ -481,6 +625,8 @@ function triggerGameOver() {
 
 function backToMenu() {
   gameState = 'menu';
+  pausedAt = null;
+  hidePauseOverlay();
   if (rafId) cancelAnimationFrame(rafId);
   if (spawnTimer) clearTimeout(spawnTimer);
   clearComics();
@@ -494,10 +640,20 @@ gameArea.addEventListener('pointermove', onPointerMove);
 gameArea.addEventListener('pointerdown', onPointerMove);
 window.addEventListener('keydown', onKeyDown);
 
+// Tecla Esc ou P alterna pausa/continuar, a qualquer momento do jogo.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+    togglePause();
+  }
+});
+
 startButton.addEventListener('click', startGame);
 retryButton.addEventListener('click', startGame);
 menuButton.addEventListener('click', backToMenu);
 exitButton.addEventListener('click', forceLoseAllLives);
+pauseButton.addEventListener('click', pauseGame);
+resumeButton.addEventListener('click', resumeGame);
+pauseExitButton.addEventListener('click', forceLoseAllLives);
 
 highscoreForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -508,6 +664,14 @@ leaderboardOpenButton.addEventListener('click', () => {
   renderLeaderboard(leaderboardListMenu, null);
   leaderboardModal.classList.remove('hidden');
   leaderboardModal.setAttribute('aria-hidden', 'false');
+
+  // Vai a jogo para a versão mais recente do top10 online e volta a
+  // desenhar a lista quando chegar, caso o modal ainda esteja aberto.
+  refreshOnlineLeaderboard().then(() => {
+    if (!leaderboardModal.classList.contains('hidden')) {
+      renderLeaderboard(leaderboardListMenu, null);
+    }
+  });
 });
 
 leaderboardCloseButton.addEventListener('click', () => {
@@ -521,3 +685,4 @@ leaderboardCloseButton.addEventListener('click', () => {
 initAssets();
 renderLives();
 showScreen('menu');
+refreshOnlineLeaderboard();
