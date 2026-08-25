@@ -441,12 +441,7 @@ function resumeGame() {
   gameState = 'playing';
   hidePauseOverlay();
 
-  if (DIFFICULTIES[difficulty].maxSimultaneous === 1) {
-    // Fácil: só volta a agendar um novo Harry se não sobrou nenhum a cair.
-    maybeSpawnNextForEasyMode();
-  } else {
-    spawnTimer = setTimeout(scheduleNextSpawn, 400);
-  }
+  spawnTimer = setTimeout(scheduleNextSpawn, 400);
   rafId = requestAnimationFrame(tick);
 }
 
@@ -622,35 +617,13 @@ function scheduleNextSpawn() {
   if (gameState !== 'playing') return;
   spawnTimer = null;
 
+  // Cada vaga larga entre 1 e o máximo simultâneo da dificuldade escolhida
+  // (em Fácil isso dá sempre 1 por vaga) — as vagas em si disparam a
+  // intervalos regulares e podem sobrepor-se a Harrys anteriores ainda a
+  // cair, cada um com a sua posição, tipo e velocidade próprias.
   const maxSimultaneous = DIFFICULTIES[difficulty].maxSimultaneous;
-
-  if (maxSimultaneous === 1) {
-    // Fácil: nunca há mais do que um Harry no ecrã ao mesmo tempo — a
-    // próxima vaga só é agendada quando este for resolvido (apanhado ou
-    // perdido), em maybeSpawnNextForEasyMode().
-    spawnComic();
-    return;
-  }
-
-  // Intermédio/Difícil: cada vaga larga entre 1 e o máximo simultâneo da
-  // dificuldade escolhida, podendo sobrepor-se a Harrys anteriores ainda a
-  // cair — cada um com a sua posição, tipo e velocidade próprias.
   const count = 1 + Math.floor(Math.random() * maxSimultaneous);
   for (let i = 0; i < count; i++) spawnComic();
-
-  const base = currentSpawnIntervalMs();
-  const jitter = Math.random() * SPAWN_JITTER - SPAWN_JITTER / 2;
-  spawnTimer = setTimeout(scheduleNextSpawn, Math.max(280, base + jitter));
-}
-
-// Só é usada em dificuldade Fácil (1 Harry de cada vez): dispara a partir
-// de updateComics() a cada frame, e só agenda o próximo Harry quando o
-// ecrã estiver mesmo vazio.
-function maybeSpawnNextForEasyMode() {
-  if (gameState !== 'playing') return;
-  if (DIFFICULTIES[difficulty].maxSimultaneous !== 1) return;
-  if (activeComics.length > 0) return;
-  if (spawnTimer) return;
 
   const base = currentSpawnIntervalMs();
   const jitter = Math.random() * SPAWN_JITTER - SPAWN_JITTER / 2;
@@ -722,7 +695,6 @@ function updateComics(timestamp) {
   }
 
   activeComics = stillActive;
-  maybeSpawnNextForEasyMode();
 }
 
 /* ---------------------------------------------------------
