@@ -54,10 +54,51 @@ const FALL_SPEED_VARIATION = 0.35;  // cada Harry cai com velocidade base ±35%,
 const SPAWN_INTERVAL_MS = 950;      // intervalo entre "vagas" de comics a cair
 const SPAWN_INTERVAL_MIN = 480;
 const SPAWN_JITTER = 160;
-const MAX_SIMULTANEOUS_HARRYS = 3;  // cada vaga larga entre 1 e 3 Harrys, ao acaso
 
 const HIGHSCORES_KEY = 'styleTheHarry.highscores.v1';
 const MAX_HIGHSCORES = 10;
+
+/* ---------------------------------------------------------
+   DIFICULDADES (escolhidas no menu, antes de jogar)
+   ----------------------------------------------------------- */
+const DIFFICULTIES = {
+  easy: {
+    label: 'Fácil',
+    hint: 'Só cai um Harry de cada vez, a velocidade é menor.',
+    maxSimultaneous: 1,       // sempre 1 de cada vez
+    fallDurationMultiplier: 1.4, // queda mais lenta (duração maior)
+    scoreMultiplier: 1,
+  },
+  medium: {
+    label: 'Intermédio',
+    hint: 'Caem 1-2 Harrys de cada vez, velocidade normal. Pontuação final ×1.5.',
+    maxSimultaneous: 2,
+    fallDurationMultiplier: 1,
+    scoreMultiplier: 1.5,
+  },
+  hard: {
+    label: 'Difícil',
+    hint: 'Caem 1-3 Harrys de cada vez, velocidade normal. Pontuação final ×2.',
+    maxSimultaneous: 3,
+    fallDurationMultiplier: 1,
+    scoreMultiplier: 2,
+  },
+};
+const DEFAULT_DIFFICULTY = 'hard'; // mantém o comportamento que o jogo já tinha
+const DIFFICULTY_KEY = 'styleTheHarry.difficulty.v1';
+
+/* ---------------------------------------------------------
+   SUPER HARRIES (dourados) + ANTI-HARRIES (invertidos) — opcional,
+   independente da dificuldade, ligado/desligado no menu.
+   ----------------------------------------------------------- */
+const SUPER_HARRIES_KEY = 'styleTheHarry.superHarries.v1';
+const SUPER_HARRY_CHANCE = 0.07; // ~7% de cada Harry gerado
+const ANTI_HARRY_CHANCE = 0.06;  // ~6% de cada Harry gerado
+
+// Pontos ganhos/perdidos ao apanhar cada tipo de Harry.
+const COMIC_SCORE_DELTA = { normal: 1, super: 5, anti: -10 };
+// Vidas perdidas quando cada tipo de Harry NÃO é apanhado (cai ao chão).
+const COMIC_LIFE_LOSS_ON_MISS = { normal: 1, super: 5, anti: 0 };
 
 /* ---------------------------------------------------------
    ESTADO
@@ -74,6 +115,8 @@ let highscores = loadHighscores();
 let pendingFinalScore = 0;
 let highscoreQualifies = false;
 let pausedAt = null;
+let difficulty = loadDifficulty();
+let superHarriesEnabled = loadSuperHarriesPref();
 
 /* ---------------------------------------------------------
    ELEMENTOS
@@ -100,6 +143,12 @@ const pauseOverlay = document.getElementById('pause-overlay');
 const pauseScoreEl = document.getElementById('pause-score');
 const resumeButton = document.getElementById('resume-button');
 const pauseExitButton = document.getElementById('pause-exit-button');
+
+const difficultyButtons = Array.from(document.querySelectorAll('.difficulty-btn'));
+const difficultyHint = document.getElementById('difficulty-hint');
+const superHarriesToggle = document.getElementById('super-harries-toggle');
+const multiplierBadge = document.getElementById('multiplier-badge');
+const finalScoreDetail = document.getElementById('final-score-detail');
 
 const leaderboardOpenButton = document.getElementById('leaderboard-open-button');
 const leaderboardCloseButton = document.getElementById('leaderboard-close-button');
@@ -324,12 +373,14 @@ function renderLives() {
   }
 }
 
-function loseLife() {
-  if (lives <= 0) return;
-  const idx = lives - 1;
-  const el = livesEls[idx];
-  if (el) el.classList.add('lost');
-  lives--;
+function loseLives(count) {
+  if (lives <= 0 || count <= 0) return;
+  const toLose = Math.min(count, lives);
+  for (let i = 0; i < toLose; i++) {
+    const el = livesEls[lives - 1 - i];
+    if (el) el.classList.add('lost');
+  }
+  lives -= toLose;
 
   if (lives <= 0) {
     setTimeout(triggerGameOver, 450);
@@ -390,7 +441,12 @@ function resumeGame() {
   gameState = 'playing';
   hidePauseOverlay();
 
-  spawnTimer = setTimeout(scheduleNextSpawn, 400);
+  if (DIFFICULTIES[difficulty].maxSimultaneous === 1) {
+    // Fácil: só volta a agendar um novo Harry se não sobrou nenhum a cair.
+    maybeSpawnNextForEasyMode();
+  } else {
+    spawnTimer = setTimeout(scheduleNextSpawn, 400);
+  }
   rafId = requestAnimationFrame(tick);
 }
 
@@ -400,8 +456,74 @@ function togglePause() {
 }
 
 /* ---------------------------------------------------------
-   DIFICULDADE (velocidade de queda)
+   DIFICULDADE (escolhida no menu) + VELOCIDADE DE QUEDA
    ----------------------------------------------------------- */
+function loadDifficulty() {
+  try {
+    const raw = localStorage.getItem(DIFFICULTY_KEY);
+    if (raw && DIFFICULTIES[raw]) return raw;
+  } catch (err) {
+    console.warn('Não foi possível ler a dificuldade guardada:', err);
+  }
+  return DEFAULT_DIFFICULTY;
+}
+
+function saveDifficulty() {
+  try {
+    localStorage.setItem(DIFFICULTY_KEY, difficulty);
+  } catch (err) {
+    console.warn('Não foi possível guardar a dificuldade:', err);
+  }
+}
+
+function loadSuperHarriesPref() {
+  try {
+    return localStorage.getItem(SUPER_HARRIES_KEY) === '1';
+  } catch (err) {
+    return false;
+  }
+}
+
+function saveSuperHarriesPref() {
+  try {
+    localStorage.setItem(SUPER_HARRIES_KEY, superHarriesEnabled ? '1' : '0');
+  } catch (err) {
+    console.warn('Não foi possível guardar a preferência de Super Harries:', err);
+  }
+}
+
+function setDifficulty(key) {
+  if (!DIFFICULTIES[key]) return;
+  difficulty = key;
+  saveDifficulty();
+
+  difficultyButtons.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.difficulty === key);
+  });
+  if (difficultyHint) difficultyHint.textContent = DIFFICULTIES[key].hint;
+}
+
+function setSuperHarries(enabled) {
+  superHarriesEnabled = enabled;
+  saveSuperHarriesPref();
+
+  if (superHarriesToggle) {
+    superHarriesToggle.classList.toggle('is-on', enabled);
+    superHarriesToggle.setAttribute('aria-pressed', String(enabled));
+  }
+}
+
+function updateMultiplierBadge() {
+  const mult = DIFFICULTIES[difficulty].scoreMultiplier;
+  if (!multiplierBadge) return;
+  if (mult > 1) {
+    multiplierBadge.textContent = '×' + mult + ' no final';
+    multiplierBadge.classList.remove('hidden');
+  } else {
+    multiplierBadge.classList.add('hidden');
+  }
+}
+
 function currentSpeedTier() {
   return Math.floor(score / POINTS_PER_SPEED_TIER);
 }
@@ -410,7 +532,7 @@ function currentFallDurationMs() {
   const tier = currentSpeedTier();
   // Sem limite de dificuldade: a cada tier (POINTS_PER_SPEED_TIER pontos) fica sempre mais rápido.
   // FALL_MS_FLOOR é só uma rede de segurança técnica, não uma dificuldade máxima.
-  const baseDuration = BASE_FALL_MS * Math.pow(FALL_MS_MULT, tier);
+  const baseDuration = BASE_FALL_MS * DIFFICULTIES[difficulty].fallDurationMultiplier * Math.pow(FALL_MS_MULT, tier);
 
   // Cada Harry tem a sua própria velocidade, ±FALL_SPEED_VARIATION à volta da
   // base do tier atual: um fator aleatório entre (1 - X) e (1 + X) na
@@ -461,11 +583,23 @@ function rectsOverlap(a, b) {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
 
+// Decide o tipo de cada Harry gerado: normal, ou (se a opção Super Harries
+// estiver ligada) ocasionalmente super (dourado) ou anti (invertido).
+function pickComicType() {
+  if (!superHarriesEnabled) return 'normal';
+  const roll = Math.random();
+  if (roll < SUPER_HARRY_CHANCE) return 'super';
+  if (roll < SUPER_HARRY_CHANCE + ANTI_HARRY_CHANCE) return 'anti';
+  return 'normal';
+}
+
 function spawnComic() {
   if (gameState !== 'playing') return;
 
+  const type = pickComicType();
+
   const el = document.createElement('div');
-  el.className = 'comic';
+  el.className = type === 'normal' ? 'comic' : 'comic ' + type;
   el.appendChild(createComicSprite());
   el.style.top = '-12%';
   gameArea.appendChild(el);
@@ -477,6 +611,7 @@ function spawnComic() {
 
   activeComics.push({
     el,
+    type,
     startTime: performance.now(),
     durationMs: currentFallDurationMs(),
     resolved: false,
@@ -485,10 +620,22 @@ function spawnComic() {
 
 function scheduleNextSpawn() {
   if (gameState !== 'playing') return;
+  spawnTimer = null;
 
-  // Cada vaga larga entre 1 e MAX_SIMULTANEOUS_HARRYS Harrys em simultâneo,
-  // ao acaso — cada um com a sua posição e velocidade próprias.
-  const count = 1 + Math.floor(Math.random() * MAX_SIMULTANEOUS_HARRYS);
+  const maxSimultaneous = DIFFICULTIES[difficulty].maxSimultaneous;
+
+  if (maxSimultaneous === 1) {
+    // Fácil: nunca há mais do que um Harry no ecrã ao mesmo tempo — a
+    // próxima vaga só é agendada quando este for resolvido (apanhado ou
+    // perdido), em maybeSpawnNextForEasyMode().
+    spawnComic();
+    return;
+  }
+
+  // Intermédio/Difícil: cada vaga larga entre 1 e o máximo simultâneo da
+  // dificuldade escolhida, podendo sobrepor-se a Harrys anteriores ainda a
+  // cair — cada um com a sua posição, tipo e velocidade próprias.
+  const count = 1 + Math.floor(Math.random() * maxSimultaneous);
   for (let i = 0; i < count; i++) spawnComic();
 
   const base = currentSpawnIntervalMs();
@@ -496,30 +643,49 @@ function scheduleNextSpawn() {
   spawnTimer = setTimeout(scheduleNextSpawn, Math.max(280, base + jitter));
 }
 
-function showFloatScore(basketRect, areaRect) {
+// Só é usada em dificuldade Fácil (1 Harry de cada vez): dispara a partir
+// de updateComics() a cada frame, e só agenda o próximo Harry quando o
+// ecrã estiver mesmo vazio.
+function maybeSpawnNextForEasyMode() {
+  if (gameState !== 'playing') return;
+  if (DIFFICULTIES[difficulty].maxSimultaneous !== 1) return;
+  if (activeComics.length > 0) return;
+  if (spawnTimer) return;
+
+  const base = currentSpawnIntervalMs();
+  const jitter = Math.random() * SPAWN_JITTER - SPAWN_JITTER / 2;
+  spawnTimer = setTimeout(scheduleNextSpawn, Math.max(280, base + jitter));
+}
+
+function showFloatScore(basketRect, areaRect, delta) {
   const el = document.createElement('div');
-  el.className = 'float-score';
-  el.textContent = '+1';
+  el.className = 'float-score' + (delta < 0 ? ' negative' : '');
+  el.textContent = (delta > 0 ? '+' : '') + delta;
   el.style.left = basketRect.left - areaRect.left + basketRect.width / 2 - 10 + 'px';
   el.style.top = basketRect.top - areaRect.top - 14 + 'px';
   gameArea.appendChild(el);
   setTimeout(() => el.remove(), 750);
 }
 
-function catchComic(comic) {
-  comic.resolved = true;
-  score++;
+function changeScore(delta) {
+  score = Math.max(0, score + delta);
   scoreEl.textContent = String(score);
   scoreEl.classList.remove('bump');
   void scoreEl.offsetWidth;
   scoreEl.classList.add('bump');
+}
+
+function catchComic(comic) {
+  comic.resolved = true;
+  const delta = COMIC_SCORE_DELTA[comic.type] ?? 1;
+  changeScore(delta);
 
   basketEl.classList.remove('catch-bounce');
   void basketEl.offsetWidth;
   basketEl.classList.add('catch-bounce');
 
   const areaRect = gameArea.getBoundingClientRect();
-  showFloatScore(basketEl.getBoundingClientRect(), areaRect);
+  showFloatScore(basketEl.getBoundingClientRect(), areaRect, delta);
 
   comic.el.classList.add('caught');
   setTimeout(() => comic.el.remove(), 380);
@@ -529,7 +695,9 @@ function missComic(comic) {
   comic.resolved = true;
   comic.el.classList.add('missed');
   setTimeout(() => comic.el.remove(), 450);
-  loseLife();
+
+  const lifeLoss = COMIC_LIFE_LOSS_ON_MISS[comic.type] ?? 1;
+  if (lifeLoss > 0) loseLives(lifeLoss);
 }
 
 function updateComics(timestamp) {
@@ -554,6 +722,7 @@ function updateComics(timestamp) {
   }
 
   activeComics = stillActive;
+  maybeSpawnNextForEasyMode();
 }
 
 /* ---------------------------------------------------------
@@ -581,6 +750,7 @@ function startGame() {
   pointerX = null;
 
   scoreEl.textContent = '0';
+  updateMultiplierBadge();
   renderLives();
   clearComics();
   gameoverPanel.classList.add('hidden');
@@ -599,10 +769,21 @@ function triggerGameOver() {
   if (spawnTimer) clearTimeout(spawnTimer);
   clearComics();
 
-  pendingFinalScore = score;
+  // A pontuação final leva o multiplicador da dificuldade escolhida
+  // (Fácil ×1, Intermédio ×1.5, Difícil ×2) — aplicado só no fim, nunca
+  // durante o jogo em si.
+  const multiplier = DIFFICULTIES[difficulty].scoreMultiplier;
+  const rawScore = score;
+  pendingFinalScore = Math.round(rawScore * multiplier);
   highscoreQualifies = qualifiesForHighscore(pendingFinalScore);
 
-  finalScoreEl.textContent = String(score);
+  finalScoreEl.textContent = String(pendingFinalScore);
+  if (multiplier > 1) {
+    finalScoreDetail.textContent = rawScore + ' pontos × ' + multiplier + ' (' + DIFFICULTIES[difficulty].label + ')';
+    finalScoreDetail.classList.remove('hidden');
+  } else {
+    finalScoreDetail.classList.add('hidden');
+  }
   gameoverPanel.classList.add('hidden');
 
   if (highscoreQualifies) {
@@ -679,6 +860,12 @@ leaderboardCloseButton.addEventListener('click', () => {
   leaderboardModal.setAttribute('aria-hidden', 'true');
 });
 
+difficultyButtons.forEach((btn) => {
+  btn.addEventListener('click', () => setDifficulty(btn.dataset.difficulty));
+});
+
+superHarriesToggle.addEventListener('click', () => setSuperHarries(!superHarriesEnabled));
+
 /* ---------------------------------------------------------
    INÍCIO
    ----------------------------------------------------------- */
@@ -686,3 +873,5 @@ initAssets();
 renderLives();
 showScreen('menu');
 refreshOnlineLeaderboard();
+setDifficulty(difficulty);
+setSuperHarries(superHarriesEnabled);

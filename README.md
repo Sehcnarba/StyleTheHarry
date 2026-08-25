@@ -11,8 +11,14 @@ Abre `index.html` num browser (basta fazer duplo-clique no ficheiro, ou usar uma
 - **Vidas:** começas com **10 vidas** (corações no topo). Perdes uma vida sempre que um Harry cai sem ser apanhado na cesta.
 - **Pausa:** o botão ⏸️ (ao lado do ✕) pausa o jogo a qualquer momento — os Harry's ficam parados no ar até continuares. Também dá para pausar/continuar com a tecla **Esc** ou **P**.
 - **Sair a meio do jogo:** o botão ✕ no canto superior esquerdo (ou "Sair" no menu de pausa) termina o jogo de imediato (perdes todas as vidas automaticamente).
-- **Dificuldade:** a cada **10 pontos**, a velocidade de queda aumenta — sem limite, até ficar mesmo impossível de continuar. Cada Harry cai a uma velocidade ligeiramente diferente (ao acaso, à volta da velocidade base do momento) e podem cair **até 3 Harrys em simultâneo**.
-- **Fim de jogo:** quando as vidas chegam a 0 (ou saíres pelo botão ✕), o coração parte-se e aparece o teu score final. Se entrares no **top 10**, é-te pedido o nome para guardar o recorde.
+- **Dificuldade:** escolhe-se no menu, antes de começar a jogar. Em qualquer uma, a cada **10 pontos** a velocidade de queda aumenta — sem limite, até ficar mesmo impossível de continuar — e cada Harry cai a uma velocidade ligeiramente diferente dos outros (ao acaso, à volta da velocidade base do momento):
+  - **Fácil** — só cai um Harry de cada vez, velocidade de queda mais lenta.
+  - **Intermédio** — caem 1-2 Harrys em simultâneo, velocidade normal. Pontuação final ×1.5.
+  - **Difícil** — caem até 3 Harrys em simultâneo, velocidade normal. Pontuação final ×2.
+- **Super Harries (opcional):** interruptor no menu, independente da dificuldade. Quando ligado, aparecem ocasionalmente:
+  - ⭐ **Super Harry** — dourado, maior, com halo brilhante. Vale **+5 pontos** se apanhado; se fugir, custa **5 vidas de uma vez**.
+  - 🖤 **Anti-Harry** — cores invertidas, halo preto. Se o apanhares, **perdes 10 pontos**; se fugir, não perdes nenhuma vida (é seguro deixá-lo cair).
+- **Fim de jogo:** quando as vidas chegam a 0 (ou saíres pelo botão ✕), o coração parte-se e aparece o teu score final (já com o multiplicador da dificuldade aplicado). Se entrares no **top 10**, é-te pedido o nome para guardar o recorde.
 
 ## Recordes (scoreboard)
 
@@ -86,8 +92,11 @@ No topo de `js/game.js` há um bloco de constantes fácil de ajustar:
 - `BASE_FALL_MS` / `FALL_MS_MULT` — controlam a velocidade de queda inicial e o quão rápido isso escala (sem limite máximo, por decisão de desenho — `FALL_MS_FLOOR` é só uma rede de segurança técnica, não uma dificuldade máxima)
 - `FALL_SPEED_VARIATION` — variação aleatória de velocidade de cada Harry à volta da base do tier (atualmente ±35%)
 - `SPAWN_INTERVAL_MS` / `SPAWN_INTERVAL_MIN` — frequência com que aparecem novas vagas de Harry's
-- `MAX_SIMULTANEOUS_HARRYS` — quantos Harry's, no máximo, podem cair ao mesmo tempo numa vaga (atualmente até 3, ao acaso)
 - `MAX_HIGHSCORES` — quantos resultados ficam guardados no scoreboard (atualmente 10)
+- `DIFFICULTIES` — um bloco por dificuldade (Fácil/Intermédio/Difícil), com quantos Harry's caem em simultâneo (`maxSimultaneous`), o multiplicador da velocidade de queda (`fallDurationMultiplier`) e o multiplicador aplicado à pontuação final (`scoreMultiplier`)
+- `DEFAULT_DIFFICULTY` — dificuldade pré-selecionada da primeira vez que alguém abre o jogo (atualmente `hard`)
+- `SUPER_HARRY_CHANCE` / `ANTI_HARRY_CHANCE` — probabilidade de cada Harry gerado ser Super/Anti quando a opção está ligada (atualmente ~7% e ~6%)
+- `COMIC_SCORE_DELTA` / `COMIC_LIFE_LOSS_ON_MISS` — pontos ganhos/perdidos e vidas perdidas por tipo de Harry (normal/super/anti)
 
 ## Publicar no GitHub
 
