@@ -383,6 +383,13 @@ button {
   filter: drop-shadow(0 8px 10px var(--shadow));
 }
 
+/* A rapariga em si fica maior/mais visível do que o resto dos placeholders
+   .emoji — mas o #basket .emoji (mais abaixo) mantém o seu próprio tamanho,
+   já que a colisão é medida pela caixa do #basket e não deve mudar. */
+#girl #girl-emoji {
+  font-size: clamp(78px, 20vw, 138px);
+}
+
 /* A imagem da rapariga é um corpo inteiro (retrato alto), ao contrário dos
    outros placeholders — não pode ser recortada num quadrado como .emoji img
    faz por omissão. Aqui a altura acompanha o tamanho do "emoji" (1em) e a
